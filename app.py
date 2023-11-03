@@ -73,6 +73,9 @@ else:
     if get_workout:
         st.session_state["workout_generate_button"] = not st.session_state["workout_generate_button"]
 
+        # Reset the flag button.
+        st.session_state["favorite_classes_button"] = False
+
     if st.session_state["workout_generate_button"]:
         # Get the suggested class type.
         class_type_obj = llm.suggest_class_type(str_recent_classes, goal_prompt, str_goal_categories)

@@ -55,7 +55,8 @@ if len(all_goals) == 0:
 else:
     goal = st.selectbox(
         "What is your goal?",
-        list(all_goals.keys())
+        list(all_goals.keys()),
+        on_change=reset
     )
     goal_prompt = all_goals[goal]['goal']
     str_goal_categories = ", ".join(all_goals[goal]['class_types'])
@@ -66,12 +67,13 @@ else:
         min_value=5, 
         max_value=120, 
         value=30, 
-        step=5)
+        step=5,
+        on_change=reset)
 
 
     get_workout = st.button("Generate Workout")
     if get_workout:
-        st.session_state["workout_generate_button"] = not st.session_state["workout_generate_button"]
+        st.session_state["workout_generate_button"] = True
 
         # Reset the flag button.
         st.session_state["favorite_classes_button"] = False

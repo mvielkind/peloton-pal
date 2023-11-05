@@ -25,10 +25,22 @@ def load_goals() -> Dict[Text, Any]:
     return json.load(open('goals.json', 'r'))
 
 
-def favorite_workouts():
+def add_classes_to_stack():
     """Iterates through the suggested classes in the workout and favorites them to easily locate them in the Peloton app."""
     for id in workout['classes']:
-        pelo.favorite(id)
+        ride_id = id["id"]
+        class_id = candidate_classes[ride_id]['join_tokens']['on_demand']
+        class_added = pelo.stack_class(class_id)
+
+        if not class_added:
+            st.toast(
+                "Error adding class to stack."
+            )
+        else:
+            st.toast(
+                "Class added to your stack!"
+            )
+
     st.session_state["favorite_classes_button"] = True
 
 
@@ -108,13 +120,6 @@ else:
         st.write(workout['reasoning'])
 
         st.button(
-            label="Favorite Classes",
-            on_click=favorite_workouts
+            label="Build Stack",
+            on_click=add_classes_to_stack
         )
-
-        if st.session_state["favorite_classes_button"]:
-            st.write("Classes Flagged!")
-            st.button(
-                label="Reset",
-                on_click=reset
-            )

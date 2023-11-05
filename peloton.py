@@ -10,6 +10,7 @@ load_dotenv()
 
 
 PELOTON_API_ROOT = "https://api.onepeloton.com"
+PELOTON_GRAPHQL_ROOT = "https://gql-graphql-gateway.prod.k8s.onepeloton.com/graphql"
 
 
 class PelotonAPI:
@@ -96,6 +97,14 @@ class PelotonAPI:
 
         return recent_workouts
 
+    def convert_ride_to_class_id(self, ride_id: str) -> str:
+        """Get details about a specific class."""
+        response = self.sess.get(f"{PELOTON_API_ROOT}/api/ride/{ride_id}/details")
+
+        ride_detail = response.json()
+
+        return ride_detail['ride']['join_tokens']['on_demand']
+
     def favorite(self, id) -> requests.Response:
         """Favorites a class in the Peloton account for the user."""
         payload = {
@@ -110,3 +119,27 @@ class PelotonAPI:
         """Gets a list of Peloton fitness disciplines."""
         response = self.sess.get(f"{PELOTON_API_ROOT}/api/browse_categories?library_type=on_demand")
         return response.json()
+
+    def stack_class(self, class_id: str) -> bool:
+        """Adds the specified class_id to the user's Peloton stack."""
+        query = {
+            "query": "mutation AddClassToStack($input: AddClassToStackInput!) {\n  addClassToStack(input: $input) {\n    numClasses\n    totalTime\n    userStack {\n      stackedClassList {\n        playOrder\n        pelotonClass {\n          ...ClassDetails\n          __typename\n        }\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n}\n\nfragment ClassDetails on PelotonClass {\n  joinToken\n  title\n  classId\n  fitnessDiscipline {\n    slug\n    __typename\n  }\n  assets {\n    thumbnailImage {\n      location\n      __typename\n    }\n    __typename\n  }\n  duration\n  ... on OnDemandInstructorClass {\n    title\n    fitnessDiscipline {\n      slug\n      displayName\n      __typename\n    }\n    contentFormat\n    difficultyLevel {\n      slug\n      displayName\n      __typename\n    }\n    airTime\n    instructor {\n      name\n      __typename\n    }\n    __typename\n  }\n  classTypes {\n    name\n    __typename\n  }\n  playableOnPlatform\n  contentAvailability\n  isLimitedRide\n  freeForLimitedTime\n  __typename\n}\n",
+            "operationName": "AddClassToStack",
+            "variables": {
+                "input": {
+                    "pelotonClassId": f"{class_id}"
+                }
+            }
+        }
+
+        headers = {
+            'peloton-platform': 'web'
+        }
+
+        response = self.sess.post(PELOTON_GRAPHQL_ROOT, json=query, headers=headers).json()
+
+        # Check if the class was successfully added to the stack.
+        if response['data']['addClassToStack']['__typename'] != 'StackResponseSuccess':
+            return False
+
+        return True

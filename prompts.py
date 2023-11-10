@@ -5,7 +5,9 @@ SYSTEM_MSG = """
     
     Classes have a difficulty rating between 0 and 10 where 0 is easiest and 10 is hardest.
 
-    Your objective is to suggest the best workout that aligns with the client's fitness goal."""
+    The client will also provide a duration they are available to workout.
+
+    Your objective is to suggest the best workout that aligns with the client's fitness goal and is equal to the amount of time available for the client."""
 
 
 CLASS_TYPE_PROMPT = """
@@ -30,7 +32,11 @@ CLASS_SUGGEST_PROMPT = """
 
     Select one or more classes for a workout session from the candidate classes that align with the fitness objectives of the client.
 
-    The duration of the session needs to equal {n_minutes}. Do not exceed this duration for a session even if it would be beneficial for the client to do so.
+    When selecting classes for a workout session calculate the total duration of the workout session. The total duration of the workout is the sum of the duration for each class in the workout session.
+
+    The calculated total duration of the session needs to be equal to {n_minutes}.
+
+    If adding a class causes the calculated duration to exceed {n_minutes} either select another candidate class to equal {n_minutes} or delete another class so the calculate duration is {n_minutes}.
         
     Explain why the workout is being suggested as it relates to the client's fitness goals and previous workouts.
     

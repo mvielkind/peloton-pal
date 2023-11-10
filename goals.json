@@ -1,6 +1,6 @@
 {
     "Build Strength": {
-        "goal": "My fitness goal is to build strength and muscle mass by mixing upper and lower body strength workouts. A secondary goal is to build and maintain cardio endurance by taking medium and hard cycling classes. Every now and then I need a day to rest and do an easy workout for recovery. I do not like barre or pilates for strength workouts. Even if these workouts are suggested they should be ignored.",
+        "goal": "For my long-term health building and maintaining muscle mass is the most important fitness goal, but I don't want to neglect cardio. In general I like to be challenged with mostly medium to hard workouts. Every now and then I need a day to rest and do an easy workout for recovery. I do not like barre or pilates for strength workouts. Even if these workouts are suggested they should be ignored.",
         "class_types": ["strength", "cycling"]
     },
     "Run 5K": {

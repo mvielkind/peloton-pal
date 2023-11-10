@@ -1,4 +1,5 @@
 import os
+import re
 import json
 from typing import Dict, Text, Any
 import openai
@@ -12,8 +13,20 @@ import prompts
 openai.api_key  = os.environ['OPENAI_API_KEY']
 
 
+def parse_json_response(content: Text) -> Dict[Text, Any]:
+    """Parses the JSON response from OpenAI.
+    """
+    match = re.search(r"```(json)?(.*)```", content, re.DOTALL)
+
+    if match is None:
+        return json.loads(content)
+    else:
+        json_str = match.group(2).strip()
+        return json.loads(json_str)
+
+
 def get_completion_from_messages(messages, 
-                                 model="gpt-4", 
+                                 model="gpt-4-1106-preview", 
                                  temperature=0, 
                                  max_tokens=500):
     response = openai.ChatCompletion.create(
@@ -42,7 +55,7 @@ def suggest_class_type(recent_workouts: str, goal_prompt: str, str_goal_categori
     #     return json_obj
     
     try:
-        class_type_response = json.loads(class_type_response)
+        class_type_response = parse_json_response(class_type_response)
     except json.decoder.JSONDecodeError as err:
         print(class_type_response)
         raise(err)
@@ -95,7 +108,7 @@ def suggest_workout(recent_workouts: str, candidate_classes: Dict[Text, Any], n_
         return workout, None
 
     try:
-        workout = json.loads(suggested_workout)
+        workout = parse_json_response(suggested_workout)
         return workout, None
     except json.decoder.JSONDecodeError as err:
         print(suggested_workout)

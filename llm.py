@@ -38,6 +38,10 @@ def get_completion_from_messages(messages,
     return response.choices[0].message["content"]
 
 
+def set_system_message(goal):
+    return {"role": "system", "content": prompts.SYSTEM_MSG.format(str_fitness_goal=goal)}
+
+
 @st.cache_data()
 def suggest_class_type(recent_workouts: str, goal_prompt: str, str_goal_categories: str):
     """Suggest the class type given the workout history.
@@ -48,11 +52,6 @@ def suggest_class_type(recent_workouts: str, goal_prompt: str, str_goal_categori
     ]
 
     class_type_response = get_completion_from_messages(messages)
-
-    # Parse response to get the JSON output.
-    # if isinstance(class_type_response, str):
-    #     json_obj = json.loads(class_type_response.split("###")[1])
-    #     return json_obj
     
     try:
         class_type_response = parse_json_response(class_type_response)
@@ -65,6 +64,34 @@ def suggest_class_type(recent_workouts: str, goal_prompt: str, str_goal_categori
         return json_obj
     
     return class_type_response
+
+
+def convert_candidate_classes_to_string(candidate_classes: Dict[Text, Any]):
+    """Converts the Peloton class object to a string for the prompt.
+    """
+    # Convert candidate classes into a string.
+    candidate_class_list = []
+    for id, details in candidate_classes.items():
+        if 'ride' in details:
+            title = details['ride']['title']
+        elif 'peloton' in details:
+            title = details['peloton']['ride']['title']
+        elif 'title' in details:
+            title = details['title']
+        else:
+            title = "Unknown"
+        
+        minutes = details['duration'] / 60
+
+        _class = {
+            'id': id,
+            'title': title,
+            'duration': minutes,
+            'difficulty': details['difficulty_estimate']
+        }
+        candidate_class_list.append(_class)
+    
+    return json.dumps(candidate_class_list)
 
 
 @st.cache_data()

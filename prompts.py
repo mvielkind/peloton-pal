@@ -20,13 +20,12 @@ CLASS_TYPE_PROMPT = """
 
     Explain how the class type helps the client achieve their fitness goals.
 
-    Only output a JSON object with two keys, class_type containing the selected class type and reasoning containing the reasoning for the class type. Do not return any other text."""
+    Only output a JSON object with two keys, class_type containing the selected class type and reasoning containing the reasoning for the class type. Do not return any other text.
+    
+    ```json"""
 
 
 CLASS_SUGGEST_PROMPT = """
-    The client's recent workouts are delimited by ###. Each workout has a date, time working out, and name of the class.
-        ###{str_recent_workouts}###
-
     Candidate classes that can be used to build the workout are in the JSON element delimited by ### below. Each class has a id, name, duration and difficulty.
         ###{str_recent_classes}###
 
@@ -40,4 +39,6 @@ CLASS_SUGGEST_PROMPT = """
         
     Explain why the workout is being suggested as it relates to the client's fitness goals and previous workouts.
     
-    Only output a JSON object with three keys, classes, total workout time, client workout duration preference and reasoning. The classes key should have a list of class objects that make up the workout. The reasoning key should explain why the workout was suggested. Do not return any other text."""
+    Only output a JSON object with three keys, classes, total workout time, client workout duration preference and reasoning. The classes key should have a list of class objects that make up the workout. The reasoning key should explain why the workout was suggested. Do not return any other text.
+    
+    ```json"""

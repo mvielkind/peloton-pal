@@ -1,10 +1,1 @@
-{
-    "Build Strength": {
-        "goal": "For my long-term health building and maintaining muscle mass is the most important fitness goal, but I don't want to neglect cardio. In general I like to be challenged with mostly medium to hard workouts. Every now and then I need a day to rest and do an easy workout for recovery. I do not like barre or pilates for strength workouts. Even if these workouts are suggested they should be ignored.",
-        "class_types": ["strength", "cycling"]
-    },
-    "Run 5K": {
-        "goal": "I want to go from couch to 5k in the next month.",
-        "class_types": ["strength", "cycling", "running"]
-    }
-}
+{"Build Strength": {"goal": "For my long-term health building and maintaining muscle mass is the most important fitness goal, but I don't want to neglect cardio. In general I like to be challenged with mostly medium to hard workouts. Every now and then I need a day to rest and do an easy workout for recovery. I do not like barre or pilates for strength workouts. Even if these workouts are suggested they should be ignored.", "class_types": ["strength", "cycling"]}, "Run 5K": {"goal": "I want to go from couch to 5k in the next month.", "class_types": ["strength", "cycling", "running"]}, "Test": {"goal": "a test goal", "class_types": ["cardio", "cycling"]}}

@@ -4,9 +4,8 @@ import json
 
 import llm
 from prompts import (
-    SYSTEM_MSG,
-    CLASS_TYPE_PROMPT,
-    CLASS_SUGGEST_PROMPT
+    CLASS_SUGGEST_PROMPT,
+    EXTRACT_CLASS_TYPE_PROMPT,
 )
 from peloton import PelotonAPI
 
@@ -14,10 +13,21 @@ from peloton import PelotonAPI
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
+if "chat" not in st.session_state:
+    st.session_state["chat"] = llm.ChatInterface()
+
+if "candidate_classes" not in st.session_state:
+    st.session_state["candidate_classes"] = {}
+
+if "cached_class_types" not in st.session_state:
+    st.session_state["cached_class_types"] = []
+
+
 @st.cache_data()
 def get_peloton_classes(class_type: str) -> Dict[Text, Any]:
     """Retrieves the users Peloton workouts and caches them for easier access."""
-    return pelo.get_recent_classes(class_type)
+    _candidates = pelo.get_recent_classes(class_type)
+    return _candidates
 
 
 @st.cache_data()
@@ -26,27 +36,55 @@ def load_goals() -> Dict[Text, Any]:
     return json.load(open('goals.json', 'r'))
 
 
+def display_recommended_workout(workout_obj, show_stack_button=False):
+    # Display the workout.
+    for id in workout_obj['classes']:
+        _class = st.session_state["candidate_classes"][id["id"]]
+
+        img, title = st.columns(2)
+        with img:
+            st.image(_class['image_url'], width=200)
+        
+        with title:
+            st.header(_class['title'])
+    
+    st.markdown(workout_obj['reasoning'])
+
+    if show_stack_button:
+        st.button(
+            label="Add to Stack",
+            on_click=add_classes_to_stack
+        )    
+
+
 def generate_workout():
     """Two-step process to generate a workout for the client.
     """
-    str_goal_categories = ", ".join(goal_map[goal]['class_types'])
-    # Ask the model what type of class the user should take.
-    class_type_prompt = CLASS_TYPE_PROMPT.format(str_recent_workouts=str_recent_classes, str_candidate_categories=str_goal_categories)
-    st.session_state["messages"].append({"role": "user", "content": class_type_prompt})    
-    class_type_response = llm.get_completion_from_messages(st.session_state['messages'])
-    st.session_state["messages"].append({"role": "assistant", "content": class_type_response})
+    # If there is a user input check to see if the user is overriding their class type preferences.
+    if user_input:
+        class_type_entity_response = st.session_state['chat'].get_completion([{"role": "user", "content": EXTRACT_CLASS_TYPE_PROMPT.format(user_input=user_input)}])
+        class_types = llm.parse_json_response(class_type_entity_response)['class_types']
+    else:
+        class_types = goal_map[goal]['class_types']
 
-    # Use the class type to get the candidate classes from Peloton.
-    class_type = llm.parse_json_response(class_type_response)['class_type']
     # Get the candidate classes.
-    candidate_classes = get_peloton_classes(class_type)
+    candidate_classes = {}
+    for class_type in class_types:
+        if class_type not in st.session_state["cached_class_types"]:
+            _candidate_classes = get_peloton_classes(class_type)
+            # Add the candidates to the session.
+            st.session_state['candidate_classes'] = st.session_state['candidate_classes'] | _candidate_classes
+        else:
+            _candidate_classes = [c for c in st.session_state["candidate_classes"]]
+        candidate_classes = candidate_classes | _candidate_classes
+
     candidate_classes_str = llm.convert_candidate_classes_to_string(candidate_classes)
 
     # Suggest the workout.
     workout_prompt = CLASS_SUGGEST_PROMPT.format(str_recent_classes=candidate_classes_str, n_minutes=n_minutes)
-    st.session_state["messages"].append({"role": "user", "content": workout_prompt})
-    workout = llm.get_completion_from_messages(st.session_state['messages'])
-    st.session_state["messages"].append({"role": "assistant", "content": workout})
+    st.session_state["chat"].messages.append({"role": "user", "content": workout_prompt, "name": "background"})
+    workout = st.session_state['chat'].get_completion()
+    st.session_state["chat"].messages.append({"role": "assistant", "content": workout})
 
     # Try to convert workout to a JSON object.
     try:
@@ -54,14 +92,14 @@ def generate_workout():
     except json.decoder.JSONDecodeError:
         workout = llm.parse_json_response(workout)
 
-    return workout, candidate_classes
+    return workout
 
 
 def add_classes_to_stack():
     """Iterates through the suggested classes in the workout and favorites them to easily locate them in the Peloton app."""
     for id in workout["classes"]:
         ride_id = id["id"]
-        class_id = candidate_classes[ride_id]['join_tokens']['on_demand']
+        class_id = st.session_state["candidate_classes"][ride_id]['join_tokens']['on_demand']
         class_added = pelo.stack_class(class_id)
 
         if not class_added:
@@ -106,41 +144,59 @@ with st.sidebar:
 st.title("Peloton GPT Personal Trainer")
 
 
+# Display the chat.
+for msg in st.session_state["chat"].messages:
+    content = msg['content']
+    if msg.get('name', '') == 'background':
+        continue
+    if msg['role'] == 'user':
+        with st.chat_message("user"):
+            st.markdown(f'*:grey["{content}"]*')
+    elif msg['role'] == 'assistant':
+        with st.chat_message("assistant"):
+            display_recommended_workout(llm.parse_json_response(content))
+
+
 # Init the Peloton API and load workouts.
 pelo = PelotonAPI()
 pelo_auth = pelo.authenticate()
 user_id = pelo_auth.json()['user_id']
 str_recent_classes = json.dumps(pelo.get_user_workouts(user_id))
 
-if goal:
-    st.session_state['messages'].append({"role": "system", "content": SYSTEM_MSG.format(str_fitness_goal=goal)})
-
 user_input = st.chat_input()
+
 if get_workout or user_input:
+    if goal:
+        st.session_state['chat'].set_system_message(goal_map[goal]['goal'])
+
     # Add the user input to the chat.
     if user_input:
-        st.session_state['messages'].append({"role": "user", "content": user_input})
-        st.markdown(f'*:grey["{user_input}"]*')
+        with st.chat_message("user"):
+            st.session_state['chat'].messages.append({"role": "user", "content": user_input})
+            st.markdown(f'*:grey["{user_input}"]*')
+
+        # Classify the message.
+        message_classification = st.session_state["chat"].classify_message(user_input)
     else:
-        st.markdown(f'*:grey["What is my recommended workout today?"]*')
+        with st.chat_message("user"):
+            st.markdown(f'*:grey["What is my recommended workout today?"]*')
+            st.session_state['chat'].messages.append({"role": "user", "content": "What is my recommended workout today?"})
     
-    # Generate the workout.
-    workout, candidate_classes = generate_workout()
-    
-    # Display the workout.
-    for id in workout['classes']:
-        _class = candidate_classes[id["id"]]
-
-        img, title = st.columns(2)
-        with img:
-            st.image(_class['image_url'], width=200)
+    if get_workout or message_classification['classification'] == 'WORKOUT':
+        # Generate the workout.
+        with st.spinner("Generating your workout..."):
+            workout = generate_workout()
         
-        with title:
-            st.header(_class['title'])
-    
-    st.write(workout['reasoning'])
+        with st.empty():
+            with st.chat_message("assistant"):
+                display_recommended_workout(workout, show_stack_button=True)
 
-    st.button(
-        label="Build Stack",
-        on_click=add_classes_to_stack
-    )
+    else:
+        # Tell the user their message is out-of-scope.
+        try:
+            oos_reply = message_classification['message']
+        except KeyError:
+            print(message_classification)
+        st.session_state["chat"].messages.append({"role": "assistant", "content": oos_reply})
+        with st.chat_message("assistent"):
+            st.write(oos_reply)

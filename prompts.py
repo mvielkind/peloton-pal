@@ -2,7 +2,7 @@ SYSTEM_MSG = """
     You are a personal trainer working with a client to help them make their fitness goals. \
     The clients fitness goal is: 
         ###{str_fitness_goal}###
-    
+        
     Classes have a difficulty rating between 0 and 10 where 0 is easiest and 10 is hardest.
 
     The client will also provide a duration they are available to workout.
@@ -42,3 +42,42 @@ CLASS_SUGGEST_PROMPT = """
     Only output a JSON object with three keys, classes, total workout time, client workout duration preference and reasoning. The classes key should have a list of class objects that make up the workout. The reasoning key should explain why the workout was suggested. Do not return any other text.
     
     ```json"""
+
+
+EXTRACT_CLASS_TYPE_PROMPT = """
+Extract the class preferences into a list from the user message ###{user_input}###
+
+Spin classes should be considered cycling classes.
+
+Classes must be one of the following:
+- strength
+- cycling
+- yoga
+- running
+- meditation
+- rowing
+- stretching
+
+Return as a JSON object with a `class_types` key without any other text.
+
+```json
+"""
+
+MESSAGE_CLASSIFIER = """
+Objective: Determine whether the given message is related to choosing a workout or not.
+
+Instructions:
+
+Read the provided message carefully.
+Determine if the message is about choosing a workout. This includes discussions about:
+Types of workouts (e.g., strength training, yoga, running).
+Preferences or decisions regarding workout routines or classes.
+Queries or considerations about exercise schedules or fitness plans.
+Names of instructors or types of music.
+If the message directly discusses any of the above points or is primarily focused on workout choices, classify it as "WORKOUT".
+If the message does not discuss workout choices and is focused on other topics (e.g., general health advice, diet, unrelated personal activities), classify it as "NOT_WORKOUT" and remind the user that you're only able to help them choose a workout.
+Provide your classification in as a JSON object.
+
+User message: ###{user_input}###
+
+```json"""

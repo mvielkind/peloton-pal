@@ -41,7 +41,7 @@ class ChatInterface:
         messages = [
             {"role": "user", "content": prompt}
         ]
-        response = get_completion_from_messages(messages, model="gpt-4-1106-preview")
+        response = self.get_completion(messages)
 
         try:
             response = parse_json_response(response)

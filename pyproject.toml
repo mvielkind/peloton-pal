@@ -12,6 +12,8 @@ requests = "^2.31.0"
 openai = "^0.28.1"
 python-dotenv = "^1.0.0"
 streamlit = "^1.27.2"
+langchain = "^0.0.345"
+jupyterlab = "^4.0.9"
 
 
 [build-system]

@@ -7,6 +7,10 @@ from prompts import (
     CLASS_SUGGEST_PROMPT,
     EXTRACT_CLASS_TYPE_PROMPT,
 )
+from langchain.schema import (
+    HumanMessage,
+    AIMessage
+)
 from peloton import PelotonAPI
 from agent import PeloAgent
 
@@ -155,16 +159,14 @@ st.title("Peloton GPT Personal Trainer")
 
 
 # Display the chat.
-for msg in st.session_state["chat"].messages:
-    content = msg['content']
-    if msg.get('name', '') == 'background':
-        continue
-    if msg['role'] == 'user':
+for msg in st.session_state["agent"].chat_history:
+    content = msg.content
+    if isinstance(msg, HumanMessage):
         with st.chat_message("user"):
             st.markdown(f'*:grey["{content}"]*')
-    elif msg['role'] == 'assistant':
+    elif isinstance(msg, AIMessage):
         with st.chat_message("assistant"):
-            display_recommended_workout(llm.parse_json_response(content))
+            st.markdown(content)
 
 
 # Init the Peloton API and load workouts.

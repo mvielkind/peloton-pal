@@ -1,4 +1,4 @@
-from typing import Any, Dict, Text
+from typing import Any, Dict, Text, Optional
 import os
 import requests
 import json
@@ -36,29 +36,21 @@ class PelotonAPI:
 
         return response
 
-    def get_recent_classes(self, fitness_discipline) -> Dict[Text, Any]:
+    def get_recent_classes(self, fitness_discipline: Optional[str] = None) -> Dict[Text, Any]:
         """Retrieves recent classes from the Peloton platform that are of the specified fitness discipline."""
         params = {
-            "browse_category": fitness_discipline,
             "limit": 50,
             "sort_by": "original_air_time",
             "desc": True
         }
 
+        if fitness_discipline:
+            params['browse_category'] = fitness_discipline
+
         response = self.sess.get(f"{PELOTON_API_ROOT}/api/v2/ride/archived",
                                  params=params)
 
-        today = datetime.datetime.today().date()
-        recent_classes = {}
-        for w in response.json()['data']:
-            workout_date = datetime.datetime.fromtimestamp(w['original_air_time']).date()
-
-            if (today - workout_date).days > 7:
-                break
-            
-            recent_classes[w['id']] = w
-
-        return recent_classes
+        return response.json()
 
     def get_user_workouts(self, user_id, page: int = 0) -> Dict[Text, Any]:
         """Get the latest workouts for the user."""

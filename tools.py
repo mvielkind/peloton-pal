@@ -1,5 +1,7 @@
+import re
 import json
 import datetime
+import streamlit as st
 from collections import defaultdict
 from langchain.agents import tool
 
@@ -7,7 +9,9 @@ from langchain.agents import tool
 @tool
 def get_peloton_classes() -> str:
     """Get recent Peloton classes."""
-    response = json.load(open("peloton_classes.json", "r'"))
+    response = st.session_state["pelo_interface"].get_recent_classes()
+
+    # response = json.load(open("peloton_classes.json", "r"))
 
     # Get available classes from the past N days.
     today = datetime.datetime.today().date()
@@ -37,26 +41,22 @@ def get_peloton_classes() -> str:
 @tool
 def get_recent_user_workouts() -> str:
     """Get the user's Peloton workouts from the past week."""
-    response = json.load(open("user_workouts.json", "r"))
+    # response = json.load(open("user_workouts.json", "r"))
 
-    today = datetime.datetime.today().date()
-    recent_workouts = defaultdict(list)
-    for w in response['data']:
-        workout_date = datetime.datetime.fromtimestamp(w['created_at']).date()
+    response = st.session_state["pelo_interface"].get_user_workouts(
+        user_id=st.session_state["pelo_user_id"]
+    )
 
-        # Only get workouts from the last 7 days.
-        if (today - workout_date).days > 14:
-            break
+    return json.dumps(response)
 
-        if 'ride' in w:
-            title = w['ride']['title']
-        elif 'peloton' in w:
-            title = w['peloton']['ride']['title']
-        else:
-            title = "Unknown"
-            
-        lbl = f"{workout_date}: {title}"
 
-        recent_workouts[str(workout_date)].append(lbl)
+@tool
+def add_class_to_stack(recommended_workout: str):
+    """Allows a user to add selected workout to the Peloton stack if the user explicitly asks to.
 
-    return json.dumps(recent_workouts)
+    recommended_workout: The recommended workout for the user with the class ID for each class in the workout.
+    """
+    print(recommended_workout)
+
+    print(re.findall('\(.*?\)',recommended_workout))
+

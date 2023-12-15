@@ -8,6 +8,7 @@ from prompts import (
     EXTRACT_CLASS_TYPE_PROMPT,
 )
 from peloton import PelotonAPI
+from agent import PeloAgent
 
 
 if "messages" not in st.session_state:
@@ -22,6 +23,15 @@ if "candidate_classes" not in st.session_state:
 if "cached_class_types" not in st.session_state:
     st.session_state["cached_class_types"] = []
 
+if "agent" not in st.session_state:
+    st.session_state["agent"] = PeloAgent()
+
+if "pelo_interface" not in st.session_state:
+    pelo = PelotonAPI()
+    pelo_auth = pelo.authenticate()
+    user_id = pelo_auth.json()['user_id']
+    st.session_state["pelo_interface"] = pelo
+    st.session_state["pelo_user_id"] = user_id
 
 @st.cache_data()
 def get_peloton_classes(class_type: str) -> Dict[Text, Any]:
@@ -158,45 +168,24 @@ for msg in st.session_state["chat"].messages:
 
 
 # Init the Peloton API and load workouts.
-pelo = PelotonAPI()
-pelo_auth = pelo.authenticate()
-user_id = pelo_auth.json()['user_id']
-str_recent_classes = json.dumps(pelo.get_user_workouts(user_id))
+# pelo = PelotonAPI()
+# pelo_auth = pelo.authenticate()
+# user_id = pelo_auth.json()['user_id']
+# str_recent_classes = json.dumps(pelo.get_user_workouts(user_id))
 
 user_input = st.chat_input()
 
 if get_workout or user_input:
-    if goal:
-        st.session_state['chat'].set_system_message(goal_map[goal]['goal'])
+    if not user_input:
+        user_input = "What is my recommended workout today?"
 
     # Add the user input to the chat.
-    if user_input:
-        with st.chat_message("user"):
-            st.session_state['chat'].messages.append({"role": "user", "content": user_input})
-            st.markdown(f'*:grey["{user_input}"]*')
-
-        # Classify the message.
-        message_classification = st.session_state["chat"].classify_message(user_input)
-    else:
-        with st.chat_message("user"):
-            st.markdown(f'*:grey["What is my recommended workout today?"]*')
-            st.session_state['chat'].messages.append({"role": "user", "content": "What is my recommended workout today?"})
+    with st.chat_message("user"):
+        st.markdown(f'*:grey["{user_input}"]*')
+        output = st.session_state["agent"].invoke(user_input)
     
-    if get_workout or message_classification['classification'] == 'WORKOUT':
-        # Generate the workout.
-        with st.spinner("Generating your workout..."):
-            workout = generate_workout()
-        
+    # Generate the workout.
+    with st.spinner("Generating your workout..."):
         with st.empty():
             with st.chat_message("assistant"):
-                display_recommended_workout(workout, show_stack_button=True)
-
-    else:
-        # Tell the user their message is out-of-scope.
-        try:
-            oos_reply = message_classification['message']
-        except KeyError:
-            print(message_classification)
-        st.session_state["chat"].messages.append({"role": "assistant", "content": oos_reply})
-        with st.chat_message("assistent"):
-            st.write(oos_reply)
+                st.markdown(output)

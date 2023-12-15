@@ -1,4 +1,5 @@
 import re
+from typing import List
 import json
 import datetime
 import streamlit as st
@@ -26,7 +27,7 @@ def get_peloton_classes() -> str:
 
         recent_classes.append(
             {
-                'id': w['id'],
+                'id': w["id"],
                 'description': w['description'],
                 'difficulty': w['difficulty_estimate'],
                 'duration': w['duration'],
@@ -51,12 +52,18 @@ def get_recent_user_workouts() -> str:
 
 
 @tool
-def add_class_to_stack(recommended_workout: str):
+def add_class_to_stack(recommended_classes: List[str]) -> str:
     """Allows a user to add selected workout to the Peloton stack if the user explicitly asks to.
 
-    recommended_workout: The recommended workout for the user with the class ID for each class in the workout.
+    recommended_classes: The list of recommended class IDs for the user. Could be one or more classes. ID should align with the classes recommended to the user.
     """
-    print(recommended_workout)
+    # Iterate through the classes and add each to my stack.
+    for class_id in recommended_classes:
+        join_token = st.session_state["pelo_interface"].convert_ride_to_class_id(class_id)
+        response = st.session_state["pelo_interface"].stack_class(join_token)
 
-    print(re.findall('\(.*?\)',recommended_workout))
+        if response == False:
+            return "Sorry something went wrong."
+
+    return "Classes added to your stack."
 

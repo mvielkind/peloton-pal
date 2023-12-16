@@ -29,6 +29,7 @@ def reset():
 
 # Setup the sidebar.
 with st.sidebar:
+    st.title("Peloton GPT Personal Trainer")
     goal_map = load_goals()
     if len(goal_map) == 0:
         st.markdown("Define a persona to customize your experience.")
@@ -58,9 +59,6 @@ if "pelo_interface" not in st.session_state:
     user_id = pelo_auth.json()['user_id']
     st.session_state["pelo_interface"] = pelo
     st.session_state["pelo_user_id"] = user_id
-
-
-st.title("Peloton GPT Personal Trainer")
 
 
 # Display the chat.

@@ -13,7 +13,10 @@ from agent import PeloAgent
 @st.cache_data()
 def load_goals() -> Dict[Text, Any]:
     """Loads the user fitness goals defined in goals.json to populate the goals dropdown."""
-    return json.load(open('goals.json', 'r'))
+    try:
+        return json.load(open('goals.json', 'r'))
+    except FileNotFoundError:
+        return {}
 
 
 def reset():
@@ -27,19 +30,27 @@ def reset():
 # Setup the sidebar.
 with st.sidebar:
     goal_map = load_goals()
-    goal = st.selectbox(
-        label="Choose a goal",
-        options=list(goal_map.keys()),
-        on_change=reset
-    )
-    
+    if len(goal_map) == 0:
+        st.markdown("Define a persona to customize your experience.")
+        goal = ""
+    else:
+        goal = st.selectbox(
+            label="Choose a goal",
+            options=list(goal_map.keys()),
+            on_change=reset
+        )
+        
     get_workout = st.button("Generate Workout")
 
 
 if "agent" not in st.session_state:
     # Load the selected persona.
-    persona = goal_map[goal]["goal"]
+    if goal != "":
+        persona = goal_map[goal]["goal"]
+    else:
+        persona = ""
     st.session_state["agent"] = PeloAgent(persona)
+
 
 if "pelo_interface" not in st.session_state:
     pelo = PelotonAPI()

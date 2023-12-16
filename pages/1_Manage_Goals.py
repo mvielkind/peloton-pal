@@ -25,12 +25,20 @@ def write_goal(
 st.title("Fitness Goal Management")
 
 # Display goals in table.
-goals = json.load(open("goals.json"))
-goal = st.selectbox(
-    label="Choose a goal",
-    index=None,
-    options=list(goals.keys()) + ["Add a new goal"]
-)
+try:
+    goals = json.load(open("goals.json"))
+
+    goal = st.selectbox(
+        label="Choose a goal",
+        index=None,
+        options=list(goals.keys()) + ["Add a new goal"]
+    )
+except FileNotFoundError:
+    goal = st.selectbox(
+        label="Choose a goal",
+        index=0,
+        options=["Add a new goal"]
+    )
 
 if goal:
     st.subheader(goal)

@@ -20,16 +20,16 @@ streamlit run Home.py
 
 ## Generating a Workout
 
-Within the Streamlit app you can define your fitness goals along with the types of workouts you prefer doing (i.e. strength, cycling, running etc.) You can define multiple goals to switch between if you'd like.
+In the `Manage Goals` screen you can define your fitness goals and preferences for your workouts. These preferences should include the types of classes you enjoy doing and the ones you dislike. You can also set a preferred workout length to default to. Being more specific in this section will result in a better experience.
 
-Once you have a goal established from the `Home` screen you can select the goal and how long you'd like to workout. The app will load your recent workout history from the Peloton API and generate a workout based on your goal and the time you have available.
+After you define your preferences you can select them from the left panel of the `Home` screen. These preferences will be used to shape the conversation with the bot to help create the workout.
 
-Sometimes you may not be feeling a certain kind of workout on a given day. Using the chat interface you can refine the workout to your liking.
+## Agent Abilities
 
-If you click the `Build Stack` button the classes in your workout will be added to your stack in the Peloton app.
+Right now the agent can help you:
 
-## A Couple Notes
+- View recent classes you've taken.
+- See the recent Peloton classes.
+- Add the workout to your stack in the Peloton app.
 
-Anecdotally the model does recommend classes to seem appropriate to my goal and the reasoning is sound. Personally, what I enjoy most is the ability to offload a decision about what to do for a workout. The model keeps workouts varied and I'm on track to meet my goals.
-
-Right now the chat is only geared to selecting a workout. I'm planning to add some more routes in the chat to interact with the API more and keep the conversation more on topic.
+I may add more in the future, but for now it's a start.

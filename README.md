@@ -1,4 +1,4 @@
-# Pelton GPT Personal Trainer
+# Pelo-Buddy: Your Peloton AI Personal Trainer
 
 A simple Streamlit app that connects to your Peloton account and suggests the next workout to meet your fitness goals.
 

@@ -10,16 +10,6 @@ from peloton import PelotonAPI
 from agent import PeloAgent
 
 
-if "agent" not in st.session_state:
-    st.session_state["agent"] = PeloAgent()
-
-if "pelo_interface" not in st.session_state:
-    pelo = PelotonAPI()
-    pelo_auth = pelo.authenticate()
-    user_id = pelo_auth.json()['user_id']
-    st.session_state["pelo_interface"] = pelo
-    st.session_state["pelo_user_id"] = user_id
-
 @st.cache_data()
 def load_goals() -> Dict[Text, Any]:
     """Loads the user fitness goals defined in goals.json to populate the goals dropdown."""
@@ -28,7 +18,8 @@ def load_goals() -> Dict[Text, Any]:
 
 def reset():
     """Resets the session state and cache."""
-    st.session_state["agent"] = PeloAgent()
+    persona = goal_map[goal]["goal"]
+    st.session_state["agent"] = PeloAgent(persona)
     
     st.cache_data.clear()
 
@@ -43,6 +34,19 @@ with st.sidebar:
     )
     
     get_workout = st.button("Generate Workout")
+
+
+if "agent" not in st.session_state:
+    # Load the selected persona.
+    persona = goal_map[goal]["goal"]
+    st.session_state["agent"] = PeloAgent(persona)
+
+if "pelo_interface" not in st.session_state:
+    pelo = PelotonAPI()
+    pelo_auth = pelo.authenticate()
+    user_id = pelo_auth.json()['user_id']
+    st.session_state["pelo_interface"] = pelo
+    st.session_state["pelo_user_id"] = user_id
 
 
 st.title("Peloton GPT Personal Trainer")

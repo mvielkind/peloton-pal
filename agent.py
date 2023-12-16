@@ -1,3 +1,4 @@
+from typing import Optional
 from tools import (
     get_peloton_classes,
     get_recent_user_workouts,
@@ -17,7 +18,7 @@ from langchain.agents import AgentExecutor
 
 class PeloAgent:
 
-    def __init__(self):
+    def __init__(self, persona: Optional[str] = None):
 
         # Define the LLM to use.
         llm = ChatOpenAI(
@@ -35,7 +36,7 @@ class PeloAgent:
             [
                 (
                     "system",
-                    AGENT_SYSTEM_MSG,
+                    AGENT_SYSTEM_MSG.format(USER_PREFERENCES=persona),
                 ),
                 MessagesPlaceholder(variable_name=MEMORY_KEY),
                 ("user", "{input}"),

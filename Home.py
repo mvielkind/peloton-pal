@@ -21,10 +21,9 @@ def load_goals() -> Dict[Text, Any]:
 
 def reset():
     """Resets the session state and cache."""
+    goal = st.session_state["selected_goal"]
     persona = goal_map[goal]["goal"]
     st.session_state["agent"] = PeloAgent(persona)
-    
-    st.cache_data.clear()
 
 
 # Setup the sidebar.
@@ -38,6 +37,7 @@ with st.sidebar:
         goal = st.selectbox(
             label="Choose a goal",
             options=list(goal_map.keys()),
+            key="selected_goal",
             on_change=reset
         )
         

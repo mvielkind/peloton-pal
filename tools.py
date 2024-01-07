@@ -2,6 +2,7 @@ import re
 from typing import List
 import json
 import datetime
+import random
 import streamlit as st
 from collections import defaultdict
 from langchain.agents import tool
@@ -36,6 +37,7 @@ def get_peloton_classes() -> str:
                 'disciplie': w['fitness_discipline_display_name']
             }
         )
+    random.shuffle(recent_classes)
     return json.dumps(recent_classes)
 
 

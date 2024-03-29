@@ -2,7 +2,11 @@ from typing import Optional
 from tools import (
     get_peloton_classes,
     get_recent_user_workouts,
-    add_class_to_stack
+    add_class_to_stack,
+    get_user_workout_preferences,
+    set_user_workout_preferences,
+    get_classes_in_stack,
+    clear_classes_in_stack
 )
 from prompts import (
     AGENT_SYSTEM_MSG
@@ -18,7 +22,7 @@ from langchain.agents import AgentExecutor
 
 class PeloAgent:
 
-    def __init__(self, persona: Optional[str] = None):
+    def __init__(self):
 
         # Define the LLM to use.
         llm = ChatOpenAI(
@@ -27,7 +31,15 @@ class PeloAgent:
         )
 
         # Bind the tools to the LLM.
-        tools = [get_peloton_classes, get_recent_user_workouts, add_class_to_stack]
+        tools = [
+            get_peloton_classes, 
+            get_recent_user_workouts, 
+            add_class_to_stack, 
+            get_classes_in_stack,
+            get_user_workout_preferences, 
+            set_user_workout_preferences,
+            clear_classes_in_stack
+        ]
         openai_tools = [format_tool_to_openai_function(t) for t in tools]
         llm_with_tools = llm.bind(functions=openai_tools)
 
@@ -36,7 +48,7 @@ class PeloAgent:
             [
                 (
                     "system",
-                    AGENT_SYSTEM_MSG.format(USER_PREFERENCES=persona),
+                    AGENT_SYSTEM_MSG,
                 ),
                 MessagesPlaceholder(variable_name=MEMORY_KEY),
                 ("user", "{input}"),

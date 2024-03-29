@@ -4,6 +4,7 @@ import requests
 import json
 from collections import defaultdict
 import datetime
+import logging
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -78,12 +79,20 @@ class PelotonAPI:
 
             if 'ride' in w:
                 title = w['ride']['title']
+                try:
+                    difficulty = w['ride']['difficulty_rating_avg']
+                except KeyError:
+                    difficulty = None
             elif 'peloton' in w:
                 title = w['peloton']['ride']['title']
+                difficulty = w['peloton']['ride']['difficulty_rating_avg']
             else:
                 title = "Unknown"
-                
-            lbl = f"{workout_date}: {title}"
+            
+            if difficulty:
+                lbl = f"{workout_date}: {title} (Difficulty: {difficulty}))"
+            else:
+                lbl = f"{workout_date}: {title}"
 
             recent_workouts[str(workout_date)].append(lbl)
 
@@ -111,6 +120,56 @@ class PelotonAPI:
         """Gets a list of Peloton fitness disciplines."""
         response = self.sess.get(f"{PELOTON_API_ROOT}/api/browse_categories?library_type=on_demand")
         return response.json()
+
+    def get_stack(self) -> bool:
+        """Gets the classes currently in the user's stack."""
+        query = {
+            "query": "query ViewUserStack {\n  viewUserStack {\n    numClasses\n    totalTime\n    ... on StackResponseSuccess {\n      numClasses\n      totalTime\n      userStack {\n        stackedClassList {\n          playOrder\n          pelotonClass {\n            joinToken\n            title\n            classId\n            fitnessDiscipline {\n              slug\n              __typename\n            }\n            assets {\n              thumbnailImage {\n                location\n                __typename\n              }\n              __typename\n            }\n            duration\n            ... on OnDemandInstructorClass {\n              joinToken\n              title\n              fitnessDiscipline {\n                slug\n                displayName\n                __typename\n              }\n              contentFormat\n              totalUserWorkouts\n              originLocale {\n                language\n                __typename\n              }\n              captions {\n                locales\n                __typename\n              }\n              timeline {\n                startOffset\n                __typename\n              }\n              difficultyLevel {\n                slug\n                displayName\n                __typename\n              }\n              airTime\n              instructor {\n                name\n                __typename\n              }\n              __typename\n            }\n            classTypes {\n              name\n              __typename\n            }\n            playableOnPlatform\n            contentAvailability\n            isLimitedRide\n            freeForLimitedTime\n            __typename\n          }\n          __typename\n        }\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n}\n",
+            "operationName":"ViewUserStack",
+            "variables":{}
+        }
+
+        headers = {
+            'peloton-platform': 'web'
+        }
+
+        response = self.sess.post(PELOTON_GRAPHQL_ROOT, json=query, headers=headers).json()
+
+        if response['data']['viewUserStack']['__typename'] != 'StackResponseSuccess':
+            return None
+
+        classes_in_stack = []
+        for cl in response['data']['viewUserStack']['userStack']['stackedClassList']:
+            classes_in_stack.append(cl["pelotonClass"]['title'])
+
+        return "\n".join(classes_in_stack)
+
+    def clear_stack(self) -> str:
+        """Clears all the classes in a user's Peloton stack."""
+        query = {
+            "query": "mutation ModifyStack($input: ModifyStackInput!) {\n  modifyStack(input: $input) {\n    numClasses\n    totalTime\n    userStack {\n      stackedClassList {\n        playOrder\n        pelotonClass {\n          ...ClassDetails\n          __typename\n        }\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n}\n\nfragment ClassDetails on PelotonClass {\n  joinToken\n  title\n  classId\n  fitnessDiscipline {\n    slug\n    __typename\n  }\n  assets {\n    thumbnailImage {\n      location\n      __typename\n    }\n    __typename\n  }\n  duration\n  ... on OnDemandInstructorClass {\n    title\n    fitnessDiscipline {\n      slug\n      displayName\n      __typename\n    }\n    contentFormat\n    difficultyLevel {\n      slug\n      displayName\n      __typename\n    }\n    airTime\n    instructor {\n      name\n      __typename\n    }\n    __typename\n  }\n  classTypes {\n    name\n    __typename\n  }\n  playableOnPlatform\n  contentAvailability\n  isLimitedRide\n  freeForLimitedTime\n  __typename\n}\n",
+            "operationName": "ModifyStack",
+            "variables": {
+                "input": {
+                    "pelotonClassIdList": []
+                }
+            }
+        }
+
+        headers = {
+            'peloton-platform': 'web'
+        }
+
+        response = self.sess.post(PELOTON_GRAPHQL_ROOT, json=query, headers=headers).json()
+
+        try:
+            if response['data']['modifyStack']['__typename'] != 'StackResponseSuccess':
+                return False
+        except KeyError:
+            logging.info(f"There was an issue with the clear_stack request: {response}")
+            return False
+
+        return True
 
     def stack_class(self, class_id: str) -> bool:
         """Adds the specified class_id to the user's Peloton stack."""

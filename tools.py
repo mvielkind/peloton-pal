@@ -46,9 +46,14 @@ def get_recent_user_workouts() -> str:
     """Get the user's Peloton workouts from the past week."""
     # response = json.load(open("user_workouts.json", "r"))
 
+    if "user_workouts" in st.session_state:
+        return json.dumps(st.session_state["user_workouts"])
+
     response = st.session_state["pelo_interface"].get_user_workouts(
         user_id=st.session_state["pelo_user_id"]
     )
+
+    st.session_state["user_workouts"] = response
 
     return json.dumps(response)
 
@@ -69,3 +74,47 @@ def add_class_to_stack(recommended_classes: List[str]) -> str:
 
     return "Classes added to your stack."
 
+
+@tool
+def get_classes_in_stack() -> str:
+    """Retrieves the classes in the user's Peloton stack."""
+    response = st.session_state["pelo_interface"].get_stack()
+
+    if not response:
+        return "No classes in your stack."
+
+    return response
+
+
+@tool
+def clear_classes_in_stack() -> str:
+    """Clears the classes in the user's Peloton stack."""
+    response = st.session_state["pelo_interface"].clear_stack()
+
+    if not response:
+        return "No classes in your stack."
+    
+    return "Stack cleared."
+
+
+@tool
+def get_user_workout_preferences() -> str:
+    """Retrieves the user workout preferences from the file system."""
+    try:
+        with open('goals.txt', 'r') as f:
+            return f.read()
+    except FileNotFoundError:
+        return "No goal found."
+    
+
+@tool
+def set_user_workout_preferences(preferences: str) -> str:
+    """
+    Writes the workout preferences from the user to the file system.
+
+    preferences: The user's workout preferences.
+    """
+    with open('goals.txt', 'w') as f:
+        f.write(preferences)
+    
+    return "Preferences saved."

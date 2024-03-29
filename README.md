@@ -18,18 +18,13 @@ Then in the terminal you can run the Streamlit app with:
 streamlit run Home.py
 ```
 
-## Generating a Workout
+Now the app is running and you can get started planning your workouts!
 
-In the `Manage Goals` screen you can define your fitness goals and preferences for your workouts. These preferences should include the types of classes you enjoy doing and the ones you dislike. You can also set a preferred workout length to default to. Being more specific in this section will result in a better experience.
+The Langchain agent is capable of a number of different tasks. To get started the sidebar offers some options for quick actions including:
 
-After you define your preferences you can select them from the left panel of the `Home` screen. These preferences will be used to shape the conversation with the bot to help create the workout.
+- View recent Peloton classes
+- Get a workout suggestion
+- View classes in your stack
+- Manage your workout preferences
 
-## Agent Abilities
-
-Right now the agent can help you:
-
-- View recent classes you've taken.
-- See the recent Peloton classes.
-- Add the workout to your stack in the Peloton app.
-
-I may add more in the future, but for now it's a start.
+You can tell the bot what your workout preferences are to get more personalized recommendations. When you include your preferences they will be saved in a `goals.txt` file.

@@ -1,4 +1,5 @@
 import streamlit as st
+import logging
 from typing import Dict, Text, Any
 import json
 
@@ -10,6 +11,9 @@ from peloton import PelotonAPI
 from agent import PeloAgent
 
 
+logging.basicConfig(level=logging.INFO)
+
+
 @st.cache_data()
 def load_goals() -> Dict[Text, Any]:
     """Loads the user fitness goals defined in goals.json to populate the goals dropdown."""
@@ -19,38 +23,8 @@ def load_goals() -> Dict[Text, Any]:
         return {}
 
 
-def reset():
-    """Resets the session state and cache."""
-    goal = st.session_state["selected_goal"]
-    persona = goal_map[goal]["goal"]
-    st.session_state["agent"] = PeloAgent(persona)
-
-
-# Setup the sidebar.
-with st.sidebar:
-    st.title("Peloton GPT Personal Trainer")
-    goal_map = load_goals()
-    if len(goal_map) == 0:
-        st.markdown("Define a persona to customize your experience.")
-        goal = ""
-    else:
-        goal = st.selectbox(
-            label="Choose a goal",
-            options=list(goal_map.keys()),
-            key="selected_goal",
-            on_change=reset
-        )
-        
-    get_workout = st.button("Generate Workout")
-
-
 if "agent" not in st.session_state:
-    # Load the selected persona.
-    if goal != "":
-        persona = goal_map[goal]["goal"]
-    else:
-        persona = ""
-    st.session_state["agent"] = PeloAgent(persona)
+    st.session_state["agent"] = PeloAgent()
 
 
 if "pelo_interface" not in st.session_state:
@@ -59,6 +33,29 @@ if "pelo_interface" not in st.session_state:
     user_id = pelo_auth.json()['user_id']
     st.session_state["pelo_interface"] = pelo
     st.session_state["pelo_user_id"] = user_id
+
+
+user_input = st.chat_input()
+
+
+# Build the sidebar with quick actions.
+with st.sidebar:
+    st.title("Peloton Pal")
+    st.subheader("An AI project to build personalized Peloton workouts.")
+    st.divider()
+    st.caption("QUICK ACTIONS")
+
+    if st.button("Set my preferences"):
+        user_input = "Set my preferences"
+
+    if st.button("Suggest a workout"):
+        user_input = "Suggest a workout"
+
+    if st.button("View Stack"):
+        user_input = "What classes are in my stack?"
+
+    if st.button("See Recent Workouts"):
+        user_input = "Describe my recent workouts"
 
 
 # Display the chat.
@@ -72,19 +69,13 @@ for msg in st.session_state["agent"].chat_history:
             st.markdown(content)
 
 
-user_input = st.chat_input()
-
-if get_workout or user_input:
-    if not user_input:
-        user_input = "What is my recommended workout today?"
+if user_input:
 
     # Add the user input to the chat.
     with st.chat_message("user"):
         st.markdown(f'*:grey["{user_input}"]*')
         output = st.session_state["agent"].invoke(user_input)
     
-    # Generate the workout.
-    with st.spinner("Generating your workout..."):
-        with st.empty():
-            with st.chat_message("assistant"):
-                st.markdown(output)
+    with st.empty():
+        with st.chat_message("assistant"):
+            st.markdown(output)

@@ -6,7 +6,8 @@ from tools import (
     get_user_workout_preferences,
     set_user_workout_preferences,
     get_classes_in_stack,
-    clear_classes_in_stack
+    clear_classes_in_stack,
+    determine_fitness_discipline
 )
 from prompts import (
     AGENT_SYSTEM_MSG
@@ -26,7 +27,7 @@ class PeloAgent:
 
         # Define the LLM to use.
         llm = ChatOpenAI(
-            model="gpt-4-1106-preview",
+            model="gpt-4o",
             temperature=0
         )
 
@@ -38,11 +39,13 @@ class PeloAgent:
             get_classes_in_stack,
             get_user_workout_preferences, 
             set_user_workout_preferences,
-            clear_classes_in_stack
+            clear_classes_in_stack,
+            determine_fitness_discipline
         ]
         openai_tools = [format_tool_to_openai_function(t) for t in tools]
         llm_with_tools = llm.bind(functions=openai_tools)
 
+        # Create the prompt template for the agent.
         MEMORY_KEY = "chat_history"
         prompt = ChatPromptTemplate.from_messages(
             [
@@ -56,6 +59,7 @@ class PeloAgent:
             ]
         )        
 
+        # Construct the agent definition.
         agent = (
             {
                 "input": lambda x: x["input"],
@@ -68,6 +72,7 @@ class PeloAgent:
             | llm_with_tools
             | OpenAIFunctionsAgentOutputParser()
         )
+
         self.chat_history = []
         self.agent_executor = AgentExecutor(
             agent=agent, 

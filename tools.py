@@ -3,15 +3,50 @@ from typing import List
 import json
 import datetime
 import random
+from openai import OpenAI
 import streamlit as st
 from collections import defaultdict
 from langchain.agents import tool
+from prompts import (
+    RECOMMEND_DISCIPLINE
+)
+
+
+CLIENT = OpenAI()
 
 
 @tool
-def get_peloton_classes() -> str:
-    """Get recent Peloton classes."""
-    response = st.session_state["pelo_interface"].get_recent_classes()
+def determine_fitness_discipline(
+    user_workouts: str,
+    preferences: str
+) -> str:
+    """Determine the recommended fitness disciplines for the next workout.
+
+    Utilizes the user's recent workouts and preferences to determine the 
+    fitness disciplines that should be the focus of the next workout. The 
+    returned disciplines will be used to find candidate classes for the workout.
+    """
+    prompt = RECOMMEND_DISCIPLINE.format(
+        USER_WORKOUTS=user_workouts,
+        PREFERENCES=preferences
+    )
+
+    chat_completion = CLIENT.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    return chat_completion.choices[0].message.content
+
+
+@tool
+def get_peloton_classes(fitness_discipline: str) -> str:
+    """Get recent Peloton classes available on the platform.
+    
+    fitness_discipline representes the type of class. must be one of strength,
+      cycling, stretching, yoga, or cardio.
+    """
+    response = st.session_state["pelo_interface"].get_recent_classes(fitness_discipline)
 
     # response = json.load(open("peloton_classes.json", "r"))
 
@@ -43,19 +78,42 @@ def get_peloton_classes() -> str:
 
 @tool
 def get_recent_user_workouts() -> str:
-    """Get the user's Peloton workouts from the past week."""
-    # response = json.load(open("user_workouts.json", "r"))
+    """Call the Peloton API to get the recent workouts.
 
+    Use this tool to get a summary of the user's recent Peloton history. 
+    """
+    # Check if the user has already loaded user workouts in this session. 
+    # Since the workouts shouldn't change much load them from the sesion 
+    # state if they are available.
     if "user_workouts" in st.session_state:
         return json.dumps(st.session_state["user_workouts"])
 
-    response = st.session_state["pelo_interface"].get_user_workouts(
-        user_id=st.session_state["pelo_user_id"]
-    )
+    # Otherwise use the PelotonAPI to get the recent workouts for the 
+    # user. Cache the results and return the list of workouts.
+    try:
+        response = st.session_state["pelo_interface"].get_user_workouts(
+            user_id=st.session_state["pelo_user_id"]
+        )
+    except Exception:
+        return "There was a problem getting workouts from Peloton. Check \
+            the logs for more information."
 
     st.session_state["user_workouts"] = response
 
-    return json.dumps(response)
+    # Provide better formatting tags to the output.
+    user_classes = []
+    for k, classes in response.items():
+        workouts = []
+        for cl in classes:
+            class_str = f"<class>{cl}</class"
+            workouts.append(class_str)
+        workout_str = "\n".join(workouts)
+        day_classes = f"<day>Date: {k}\nClasses: {workout_str}</day>"
+        user_classes.append(day_classes)
+
+    user_class_str = "\n".join(user_classes)
+    return f"These are the recent user workouts for the past week: {user_class_str}"
+    # return f"These are the recent user workouts for the past week: {json.dumps(response)}"
 
 
 @tool
@@ -99,7 +157,10 @@ def clear_classes_in_stack() -> str:
 
 @tool
 def get_user_workout_preferences() -> str:
-    """Retrieves the user workout preferences from the file system."""
+    """Retrieves the user workout preferences from the file system.
+    
+    Used to allow the user to review the preferences they have set.
+    """
     try:
         with open('goals.txt', 'r') as f:
             return f.read()

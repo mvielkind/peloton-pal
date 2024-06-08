@@ -15,6 +15,12 @@ PELOTON_GRAPHQL_ROOT = "https://gql-graphql-gateway.prod.k8s.onepeloton.com/grap
 
 
 class PelotonAPI:
+    """Interface for making calls to the Peloton API.
+
+    A common interface for interacting with the Peloton API. The class sets up 
+    a requests Session that once authenticated will be the source of all API 
+    calls to Peloton.
+    """
 
     def __init__(self):
 
@@ -38,7 +44,21 @@ class PelotonAPI:
         return response
 
     def get_recent_classes(self, fitness_discipline: Optional[str] = None) -> Dict[Text, Any]:
-        """Retrieves recent classes from the Peloton platform that are of the specified fitness discipline."""
+        """Get recent Peloton classes.
+        
+        Gets a list of the recent Peloton classes offered on the platform. 
+        When providing class suggestions the agent will reference the 
+        returned classes as the candidates to choose from.
+        
+        Args:
+            fitness_discipline: An optional value to filter the class results 
+                to be for a single discipline (i.e. running, cycling, strength 
+                etc.)
+        
+        Returns:
+            A JSON object with the class information. The `data` key of the 
+            response has a list of the returned class objects.
+        """
         params = {
             "limit": 50,
             "sort_by": "original_air_time",
@@ -53,53 +73,95 @@ class PelotonAPI:
 
         return response.json()
 
-    def get_user_workouts(self, user_id, page: int = 0) -> Dict[Text, Any]:
-        """Get the latest workouts for the user."""
-        params = {
-            "page": page,
-            "limit": 50,
-            "joins": "peloton.ride",
-            "sort_by": "-created"
-        }
+    def get_user_workouts(
+            self, 
+            user_id: str, 
+            page: int = 0
+        ) -> Dict[Text, Any]:
+        """Get the latest workouts for the user for the past 7 days.
+        
+        Uses pagination to make calls to the Peloton user workouts endpoint to 
+        retrieve the user workouts for the previous 7 days.
 
-        response = self.sess.get(
-            f"{PELOTON_API_ROOT}/api/user/{user_id}/workouts",
-            params=params
-        )
+        Different types of workouts have varying schemas for the response. 
+        For each workout the title, discipline and difficulty rating are 
+        extracted so they can be used to describe the recent classes for the 
+        agent.
 
-        # Iterate through workouts and generate a list of workouts for the user.
-        today = datetime.datetime.today().date()
-        recent_workouts = defaultdict(list)
-        for w in response.json()['data']:
-            workout_date = datetime.datetime.fromtimestamp(w['created_at']).date()
+        Args:
+            user_id: The Peloton user ID to build the query string.
+            page: the page number for the results to retrieve.
+        
+        Returns:
+            A dictionary where the keys are a date with a list of workout 
+            objects that were done on that day.
+        """
+        show_more = True
+        while show_more:
+            params = {
+                "page": page,
+                "limit": 50,
+                "joins": "peloton.ride",
+                "sort_by": "-created"
+            }
 
-            # Only get workouts from the last 7 days.
-            if (today - workout_date).days > 7:
-                break
+            try:
+                response = self.sess.get(
+                    f"{PELOTON_API_ROOT}/api/user/{user_id}/workouts",
+                    params=params
+                )
+                response.raise_for_status()
+            except Exception as http_err:
+                logging.error(
+                    f'Error occurred getting Peloton workouts. {http_err}'
+                )
+                return None
 
-            if 'ride' in w:
-                title = w['ride']['title']
-                try:
-                    difficulty = w['ride']['difficulty_rating_avg']
-                except KeyError:
-                    difficulty = None
-            elif 'peloton' in w:
-                title = w['peloton']['ride']['title']
-                difficulty = w['peloton']['ride']['difficulty_rating_avg']
-            else:
-                title = "Unknown"
+            pelo_response = response.json()
+
+            # Iterate through workouts and generate a list of workouts for the user.
+            today = datetime.datetime.today().date()
+            recent_workouts = defaultdict(list)
+            for w in pelo_response['data']:
+                workout_date = datetime.datetime.fromtimestamp(w['created_at']).date()
+
+                # Stop reading workouts if this workout exceeds the one week lookback.
+                if (today - workout_date).days > 7:
+                    show_more = False
+                    break
+
+                if 'ride' in w:
+                    title = w['ride']['title']
+                    try:
+                        difficulty = w['ride']['difficulty_rating_avg']
+                    except KeyError:
+                        difficulty = None
+                elif 'peloton' in w:
+                    title = w['peloton']['ride']['title']
+                    difficulty = w['peloton']['ride']['difficulty_rating_avg']
+                else:
+                    title = "Unknown"
+                
+                if difficulty:
+                    lbl = f"{title}\nDiscipline: {w['fitness_discipline']}\nDifficulty: {difficulty}"
+                else:
+                    lbl = f"{title}\nDiscipline: {w['fitness_discipline']}"
+
+                recent_workouts[str(workout_date)].append(lbl)
             
-            if difficulty:
-                lbl = f"{workout_date}: {title} (Difficulty: {difficulty}))"
-            else:
-                lbl = f"{workout_date}: {title}"
+            # If there are no more records and the loop hasn't exited for the time range then
+            # check if there are more records that the API can return.
+            if show_more:
+                show_more = pelo_response["show_next"]
 
-            recent_workouts[str(workout_date)].append(lbl)
+                if show_more:
+                    page += 1
 
         return recent_workouts
 
     def convert_ride_to_class_id(self, ride_id: str) -> str:
-        """Get details about a specific class."""
+        """Get details about a specific class.
+        """
         response = self.sess.get(f"{PELOTON_API_ROOT}/api/ride/{ride_id}/details")
 
         ride_detail = response.json()
@@ -121,8 +183,17 @@ class PelotonAPI:
         response = self.sess.get(f"{PELOTON_API_ROOT}/api/browse_categories?library_type=on_demand")
         return response.json()
 
-    def get_stack(self) -> bool:
-        """Gets the classes currently in the user's stack."""
+    def get_stack(self) -> str:
+        """Gets the classes currently in the user's stack.
+        
+        Args:
+            None
+        
+        Returns:
+            A string of classes that the user currently has in their Stack.
+            Each class is separated by a newline character.
+        
+        """
         query = {
             "query": "query ViewUserStack {\n  viewUserStack {\n    numClasses\n    totalTime\n    ... on StackResponseSuccess {\n      numClasses\n      totalTime\n      userStack {\n        stackedClassList {\n          playOrder\n          pelotonClass {\n            joinToken\n            title\n            classId\n            fitnessDiscipline {\n              slug\n              __typename\n            }\n            assets {\n              thumbnailImage {\n                location\n                __typename\n              }\n              __typename\n            }\n            duration\n            ... on OnDemandInstructorClass {\n              joinToken\n              title\n              fitnessDiscipline {\n                slug\n                displayName\n                __typename\n              }\n              contentFormat\n              totalUserWorkouts\n              originLocale {\n                language\n                __typename\n              }\n              captions {\n                locales\n                __typename\n              }\n              timeline {\n                startOffset\n                __typename\n              }\n              difficultyLevel {\n                slug\n                displayName\n                __typename\n              }\n              airTime\n              instructor {\n                name\n                __typename\n              }\n              __typename\n            }\n            classTypes {\n              name\n              __typename\n            }\n            playableOnPlatform\n            contentAvailability\n            isLimitedRide\n            freeForLimitedTime\n            __typename\n          }\n          __typename\n        }\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n}\n",
             "operationName":"ViewUserStack",
@@ -144,8 +215,16 @@ class PelotonAPI:
 
         return "\n".join(classes_in_stack)
 
-    def clear_stack(self) -> str:
-        """Clears all the classes in a user's Peloton stack."""
+    def clear_stack(self) -> bool:
+        """Clears all the classes in a user's Peloton stack.
+        
+        Args:
+            None
+        
+        Returns:
+            True if classes were successfully deleted or False if there is an 
+            issue clearing the classes.
+        """
         query = {
             "query": "mutation ModifyStack($input: ModifyStackInput!) {\n  modifyStack(input: $input) {\n    numClasses\n    totalTime\n    userStack {\n      stackedClassList {\n        playOrder\n        pelotonClass {\n          ...ClassDetails\n          __typename\n        }\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n}\n\nfragment ClassDetails on PelotonClass {\n  joinToken\n  title\n  classId\n  fitnessDiscipline {\n    slug\n    __typename\n  }\n  assets {\n    thumbnailImage {\n      location\n      __typename\n    }\n    __typename\n  }\n  duration\n  ... on OnDemandInstructorClass {\n    title\n    fitnessDiscipline {\n      slug\n      displayName\n      __typename\n    }\n    contentFormat\n    difficultyLevel {\n      slug\n      displayName\n      __typename\n    }\n    airTime\n    instructor {\n      name\n      __typename\n    }\n    __typename\n  }\n  classTypes {\n    name\n    __typename\n  }\n  playableOnPlatform\n  contentAvailability\n  isLimitedRide\n  freeForLimitedTime\n  __typename\n}\n",
             "operationName": "ModifyStack",
@@ -172,7 +251,14 @@ class PelotonAPI:
         return True
 
     def stack_class(self, class_id: str) -> bool:
-        """Adds the specified class_id to the user's Peloton stack."""
+        """Adds the specified class_id to the user's Peloton stack.
+        
+        Args:
+            class_id: The ID of the class to add to the stack.
+        
+        Returns:
+            True if adding the class was successful. Otherwise returns False.
+        """
         query = {
             "query": "mutation AddClassToStack($input: AddClassToStackInput!) {\n  addClassToStack(input: $input) {\n    numClasses\n    totalTime\n    userStack {\n      stackedClassList {\n        playOrder\n        pelotonClass {\n          ...ClassDetails\n          __typename\n        }\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n}\n\nfragment ClassDetails on PelotonClass {\n  joinToken\n  title\n  classId\n  fitnessDiscipline {\n    slug\n    __typename\n  }\n  assets {\n    thumbnailImage {\n      location\n      __typename\n    }\n    __typename\n  }\n  duration\n  ... on OnDemandInstructorClass {\n    title\n    fitnessDiscipline {\n      slug\n      displayName\n      __typename\n    }\n    contentFormat\n    difficultyLevel {\n      slug\n      displayName\n      __typename\n    }\n    airTime\n    instructor {\n      name\n      __typename\n    }\n    __typename\n  }\n  classTypes {\n    name\n    __typename\n  }\n  playableOnPlatform\n  contentAvailability\n  isLimitedRide\n  freeForLimitedTime\n  __typename\n}\n",
             "operationName": "AddClassToStack",

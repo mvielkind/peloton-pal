@@ -3,3 +3,4 @@
 __pycache__
 .env
 goals.txt
+preferences.json

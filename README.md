@@ -20,11 +20,4 @@ streamlit run Home.py
 
 Now the app is running and you can get started planning your workouts!
 
-The Langchain agent is capable of a number of different tasks. To get started the sidebar offers some options for quick actions including:
-
-- View recent Peloton classes
-- Get a workout suggestion
-- View classes in your stack
-- Manage your workout preferences
-
-You can tell the bot what your workout preferences are to get more personalized recommendations. When you include your preferences they will be saved in a `goals.txt` file.
+The PydanticAI agent is capable of a number of different tasks related to producing personalized Peloton recommendations.

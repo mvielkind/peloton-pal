@@ -2,8 +2,6 @@ from typing import Any, Dict, Text, Optional
 import os
 import requests
 import json
-from collections import defaultdict
-import datetime
 import logging
 from dotenv import load_dotenv
 load_dotenv()
@@ -73,6 +71,51 @@ class PelotonAPI:
 
         return response.json()
 
+    def get_instructor_list(
+            self,
+            page_id: int = 0
+        ) -> dict:
+        """Gets a list of Peloton instructors.
+        
+        Returns a dictionary with the instructor ID as the key and the name
+        for a value.
+        """
+        instructor_map = {}
+
+        # Results are paginated so loop until all instructors are returned.
+        while True:
+            params = {
+                "page": page_id
+            }
+
+            try:
+                response = self.sess.get(
+                    f"{PELOTON_API_ROOT}/api/instructor",
+                    params=params
+                )
+                response.raise_for_status()
+            except Exception as http_err:
+                logging.error(
+                    f'Error occurred getting Peloton instructors. {http_err}'
+                )
+                return None
+
+            pelo_response = response.json()
+
+            # Populate the instructors.
+            for instructor in pelo_response["data"]:
+                id = instructor["id"]
+                name = instructor["name"]
+                instructor_map[id] = name
+
+            # Check if a new request should be made.
+            if pelo_response["show_next"]:
+                page_id += 1
+            else:
+                break
+
+        return instructor_map
+        
     def get_user_workouts(
             self, 
             user_id: str, 
@@ -119,45 +162,7 @@ class PelotonAPI:
 
             pelo_response = response.json()
 
-            # Iterate through workouts and generate a list of workouts for the user.
-            today = datetime.datetime.today().date()
-            recent_workouts = defaultdict(list)
-            for w in pelo_response['data']:
-                workout_date = datetime.datetime.fromtimestamp(w['created_at']).date()
-
-                # Stop reading workouts if this workout exceeds the one week lookback.
-                if (today - workout_date).days > 7:
-                    show_more = False
-                    break
-
-                if 'ride' in w:
-                    title = w['ride']['title']
-                    try:
-                        difficulty = w['ride']['difficulty_rating_avg']
-                    except KeyError:
-                        difficulty = None
-                elif 'peloton' in w:
-                    title = w['peloton']['ride']['title']
-                    difficulty = w['peloton']['ride']['difficulty_rating_avg']
-                else:
-                    title = "Unknown"
-                
-                if difficulty:
-                    lbl = f"{title}\nDiscipline: {w['fitness_discipline']}\nDifficulty: {difficulty}"
-                else:
-                    lbl = f"{title}\nDiscipline: {w['fitness_discipline']}"
-
-                recent_workouts[str(workout_date)].append(lbl)
-            
-            # If there are no more records and the loop hasn't exited for the time range then
-            # check if there are more records that the API can return.
-            if show_more:
-                show_more = pelo_response["show_next"]
-
-                if show_more:
-                    page += 1
-
-        return recent_workouts
+            return pelo_response
 
     def convert_ride_to_class_id(self, ride_id: str) -> str:
         """Get details about a specific class.
